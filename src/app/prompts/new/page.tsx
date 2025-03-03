@@ -1,6 +1,8 @@
 // app/prompts/new/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../api/auth/[...nextauth]/route";
+import { authOptions } from "../../api/[...nextauth]/route";
+
+
 
 export default async function NewPromptPage() {
   const session = await getServerSession(authOptions);
