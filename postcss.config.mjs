@@ -1,8 +1,6 @@
-// eslint-disable-next-line import/no-anonymous-default-export
+// postcss.config.js
 export default {
   plugins: {
     "@tailwindcss/postcss": {},
-    autoprefixer: {},
-  },
-};
-
+  }
+}
