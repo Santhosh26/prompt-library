@@ -1,3 +1,4 @@
+// src/app/auth/signup/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -8,27 +9,31 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-  
+    setSuccess("");
+
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch("/api/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password }),
       });
-      const text = await res.text(); // Log raw text
-      console.log("Response text:", text);
-      const data = JSON.parse(text); // Parse JSON manually
+      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to sign up");
       }
-      router.push("/auth/signin");
+      setSuccess("Account created successfully! Redirecting to sign in page...");
+      // Redirect after a short delay to allow the user to see the success message.
+      setTimeout(() => {
+        router.push("/auth/signin");
+      }, 3000);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -37,7 +42,6 @@ export default function SignUpPage() {
       }
     }
   };
-  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -47,6 +51,7 @@ export default function SignUpPage() {
       >
         <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
         {error && <p className="text-red-500 mb-4">{error}</p>}
+        {success && <p className="text-green-500 mb-4">{success}</p>}
         <div className="mb-4">
           <label className="block mb-1">Name</label>
           <input
@@ -87,3 +92,4 @@ export default function SignUpPage() {
     </div>
   );
 }
+
