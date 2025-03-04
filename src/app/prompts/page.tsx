@@ -1,90 +1,104 @@
+// src/app/prompts/new/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../api/[...nextauth]/route";
 
-export interface Prompt {
-  id: string;
-  title: string;
-  content: string;
-  useCase: string;
-  source: string;
-  upvotes: number;
-  status: string;
+export default async function NewPromptPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return <div>Please sign in to submit a new prompt.</div>;
+  }
+
+  // Client component for form submission must be wrapped in "use client"
+  return <NewPromptForm />;
 }
 
-export default function PromptsPage() {
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [search, setSearch] = useState("");
+function NewPromptForm() {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [useCase, setUseCase] = useState("");
+  const [source, setSource] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-  useEffect(() => {
-    fetch("/api/prompts")
-      .then((res) => res.json())
-      .then((data) => {
-        // Filter for only approved prompts
-        const approvedPrompts = data.filter(
-          (p: Prompt) => p.status === "APPROVED"
-        );
-        setPrompts(approvedPrompts);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const res = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content, useCase, source }),
       });
-  }, []);
-
-  const filteredPrompts = prompts.filter((prompt) =>
-    prompt.title.toLowerCase().includes(search.toLowerCase()) ||
-    prompt.useCase.toLowerCase().includes(search.toLowerCase())
-  );
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Something went wrong");
+      }
+      router.push("/prompts");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred");
+      }
+    }
+  };
 
   return (
-    <main className="p-8 bg-gray-100 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Prompt Library</h1>
-        <input
-          type="text"
-          placeholder="Search prompts..."
-          className="border border-gray-300 p-2 rounded"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          visible: {
-            opacity: 1,
-            y: 0,
-            transition: { staggerChildren: 0.1 },
-          },
-        }}
-      >
-        {filteredPrompts.map((prompt) => (
-          <motion.div
-            key={prompt.id}
-            className="bg-white p-4 rounded shadow"
-            variants={{
-              hidden: { opacity: 0, y: 10 },
-              visible: { opacity: 1, y: 0 },
-            }}
-          >
-            <h2 className="text-xl font-semibold mb-2">
-              <Link href={`/prompts/${prompt.id}`}>{prompt.title}</Link>
-            </h2>
-            <p className="text-gray-600">
-              {prompt.content.substring(0, 100)}...
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Use Case: {prompt.useCase}
-            </p>
-            <p className="text-sm text-gray-500">Source: {prompt.source}</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Upvotes: {prompt.upvotes}
-            </p>
-          </motion.div>
-        ))}
-      </motion.div>
-    </main>
+    <div className="p-8 bg-gray-100 min-h-screen">
+      <h1 className="text-2xl font-bold mb-4">Submit a New Prompt</h1>
+      {error && <p className="text-red-500 mb-2">{error}</p>}
+      <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow max-w-md">
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Title</label>
+          <input
+            type="text"
+            className="w-full border border-gray-300 rounded p-2"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Marketing Email Generator"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Content</label>
+          <textarea
+            className="w-full border border-gray-300 rounded p-2"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="The actual prompt text..."
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Use Case</label>
+          <input
+            type="text"
+            className="w-full border border-gray-300 rounded p-2"
+            value={useCase}
+            onChange={(e) => setUseCase(e.target.value)}
+            placeholder="e.g. Email marketing"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Source / Credits</label>
+          <input
+            type="text"
+            className="w-full border border-gray-300 rounded p-2"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="e.g. John Doe, ChatGPT, etc."
+          />
+        </div>
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Submit
+        </button>
+      </form>
+    </div>
   );
 }
