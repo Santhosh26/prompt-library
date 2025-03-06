@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-export interface Prompt {
+interface PromptDetail {
   id: string;
   title: string;
   content: string;
@@ -12,95 +14,115 @@ export interface Prompt {
   source: string;
   upvotes: number;
   status: string;
+  createdAt: string;
+  user?: {
+    name: string | null;
+    email: string;
+  };
 }
 
-export default function PromptsPage() {
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [search, setSearch] = useState("");
-  const [selectedUseCase, setSelectedUseCase] = useState("All");
+export default function PromptDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const { id } = params;
+  const { data: session } = useSession();
+  const [prompt, setPrompt] = useState<PromptDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-  // Fetch approved prompts on mount
   useEffect(() => {
-    fetch("/api/prompts")
-      .then((res) => res.json())
+    if (!id) return;
+
+    fetch(`/api/prompts/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch prompt");
+        return res.json();
+      })
       .then((data) => {
-        const approvedPrompts = data.filter(
-          (p: Prompt) => p.status === "APPROVED"
-        );
-        setPrompts(approvedPrompts);
+        setPrompt(data);
+      })
+      .catch((err) => {
+        setError("Error loading prompt");
+        console.error(err);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-  }, []);
+  }, [id]);
 
-  // Get unique use case options from prompts
-  const uniqueUseCases = Array.from(new Set(prompts.map((p) => p.useCase)));
+  const handleUpvote = async () => {
+    if (!session) {
+      router.push("/auth/signin");
+      return;
+    }
 
-  // Filter prompts based on search text and selected use case
-  const filteredPrompts = prompts.filter((prompt) => {
-    const matchesSearch =
-      prompt.title.toLowerCase().includes(search.toLowerCase()) ||
-      prompt.useCase.toLowerCase().includes(search.toLowerCase());
-    const matchesUseCase =
-      selectedUseCase === "All" || prompt.useCase === selectedUseCase;
-    return matchesSearch && matchesUseCase;
-  });
+    try {
+      const res = await fetch(`/api/prompts/${id}/upvote`, {
+        method: "POST",
+      });
+      
+      if (!res.ok) throw new Error("Failed to upvote");
+      
+      const updatedPrompt = await res.json();
+      setPrompt(prev => prev ? { ...prev, upvotes: updatedPrompt.upvotes } : null);
+    } catch (err) {
+      console.error("Error upvoting:", err);
+    }
+  };
+
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (error) return <div className="p-8 text-red-500">{error}</div>;
+  if (!prompt) return <div className="p-8">Prompt not found</div>;
 
   return (
     <main className="p-8 bg-gray-100 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold">Prompt Library</h1>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <input
-            type="text"
-            placeholder="Search prompts..."
-            className="border border-gray-300 p-2 rounded"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            value={selectedUseCase}
-            onChange={(e) => setSelectedUseCase(e.target.value)}
-            className="border border-gray-300 p-2 rounded"
-          >
-            <option value="All">All Use Cases</option>
-            {uniqueUseCases.map((useCase) => (
-              <option key={useCase} value={useCase}>
-                {useCase}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <Link href="/prompts" className="text-blue-500 mb-4 inline-block">
+        &larr; Back to Prompts
+      </Link>
+      
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          visible: {
-            opacity: 1,
-            y: 0,
-            transition: { staggerChildren: 0.1 },
-          },
-        }}
+        className="bg-white p-6 rounded shadow-md max-w-3xl mx-auto mt-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        {filteredPrompts.map((prompt) => (
-          <motion.div
-            key={prompt.id}
-            className="bg-white p-4 rounded shadow"
-            variants={{
-              hidden: { opacity: 0, y: 10 },
-              visible: { opacity: 1, y: 0 },
-            }}
+        <div className="flex justify-between items-start">
+          <h1 className="text-3xl font-bold mb-4">{prompt.title}</h1>
+          <button
+            onClick={handleUpvote}
+            className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-2 rounded flex items-center"
           >
-            <h2 className="text-xl font-semibold mb-2">
-              <Link href={`/prompts/${prompt.id}`}>{prompt.title}</Link>
-            </h2>
-            <p className="text-gray-600">{prompt.content.substring(0, 100)}...</p>
-            <p className="text-sm text-gray-500 mt-2">Use Case: {prompt.useCase}</p>
-            <p className="text-sm text-gray-500">Source: {prompt.source}</p>
-            <p className="text-sm text-gray-500 mt-2">Upvotes: {prompt.upvotes}</p>
-          </motion.div>
-        ))}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-1"
+            >
+              <path d="m19 14-7-7-7 7"></path>
+            </svg>
+            <span>{prompt.upvotes}</span>
+          </button>
+        </div>
+        
+        <div className="my-4 p-4 bg-gray-50 rounded border border-gray-200 whitespace-pre-wrap">
+          {prompt.content}
+        </div>
+        
+        <div className="mt-6 text-sm text-gray-600">
+          <p><strong>Use Case:</strong> {prompt.useCase}</p>
+          <p><strong>Source:</strong> {prompt.source}</p>
+          <p><strong>Submitted by:</strong> {prompt.user?.name || prompt.user?.email || "Anonymous"}</p>
+          <p><strong>Date:</strong> {new Date(prompt.createdAt).toLocaleString()}</p>
+        </div>
       </motion.div>
     </main>
   );

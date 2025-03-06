@@ -12,27 +12,38 @@ export async function POST(
   const session = await getServerSession(authOptions);
   const { id } = params;
   
-  // Check if user is an admin
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session) {
     return NextResponse.json(
-      { error: "Not authorized" },
-      { status: 403 }
+      { error: "You must be signed in to upvote" },
+      { status: 401 }
     );
   }
   
   try {
-    const updated = await prisma.prompt.update({
+    const prompt = await prisma.prompt.findUnique({
+      where: { id },
+    });
+    
+    if (!prompt) {
+      return NextResponse.json(
+        { error: "Prompt not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Increment upvotes
+    const updatedPrompt = await prisma.prompt.update({
       where: { id },
       data: {
-        status: "APPROVED",
+        upvotes: { increment: 1 },
       },
     });
     
-    return NextResponse.json(updated, { status: 200 });
+    return NextResponse.json(updatedPrompt);
   } catch (error) {
-    console.error(error);
+    console.error("Error upvoting prompt:", error);
     return NextResponse.json(
-      { error: "Error approving prompt" },
+      { error: "Failed to upvote prompt" },
       { status: 500 }
     );
   }

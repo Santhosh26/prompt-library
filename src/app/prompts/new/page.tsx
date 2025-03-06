@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../api/[...nextauth]/route";
+import { authOptions } from "../../api/auth/[...nextauth]/route";
+
 
 export default async function NewPromptPage() {
   const session = await getServerSession(authOptions);
@@ -11,7 +12,6 @@ export default async function NewPromptPage() {
     return <div>Please sign in to submit a new prompt.</div>;
   }
 
-  // Client component for form submission must be wrapped in "use client"
   return <NewPromptForm />;
 }
 
@@ -21,12 +21,13 @@ function NewPromptForm() {
   const [useCase, setUseCase] = useState("");
   const [source, setSource] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
+    setSuccess("");
     try {
       const res = await fetch("/api/prompts", {
         method: "POST",
@@ -37,7 +38,11 @@ function NewPromptForm() {
         const data = await res.json();
         throw new Error(data.error || "Something went wrong");
       }
-      router.push("/prompts");
+      setSuccess("Prompt submitted successfully for moderation.");
+      // Redirect after 3 seconds so the user can see the success message
+      setTimeout(() => {
+        router.push("/prompts");
+      }, 3000);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -51,6 +56,7 @@ function NewPromptForm() {
     <div className="p-8 bg-gray-100 min-h-screen">
       <h1 className="text-2xl font-bold mb-4">Submit a New Prompt</h1>
       {error && <p className="text-red-500 mb-2">{error}</p>}
+      {success && <p className="text-green-500 mb-2">{success}</p>}
       <form onSubmit={handleSubmit} className="bg-white p-4 rounded shadow max-w-md">
         <div className="mb-4">
           <label className="block font-semibold mb-1">Title</label>
