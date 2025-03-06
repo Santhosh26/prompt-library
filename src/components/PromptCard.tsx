@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface PromptCardProps {
   id: string;
@@ -29,6 +30,7 @@ export default function PromptCard({
 }: PromptCardProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const [isCopied, setIsCopied] = useState(false);
 
   const handleUpvoteClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,6 +42,33 @@ export default function PromptCard({
     }
     
     onUpvote(id);
+  };
+  
+  const handleTryWithChatGPT = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Encode the prompt text for URL
+    const encodedPrompt = encodeURIComponent(content);
+    window.open(`https://chat.openai.com/chat?prompt=${encodedPrompt}`, '_blank');
+  };
+  
+  const handleTryWithClaude = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Claude doesn't support direct prompt URLs yet, so we'll open Claude's chat page
+    window.open('https://claude.ai/chat', '_blank');
+  };
+  
+  const handleCopyPrompt = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    navigator.clipboard.writeText(content).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
   };
 
   // Truncate content if it's too long
@@ -91,6 +120,46 @@ export default function PromptCard({
       </div>
 
       <p className="text-gray-700 mb-4">{truncatedContent}</p>
+      
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          onClick={handleTryWithChatGPT}
+          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded-full text-xs font-medium transition-colors"
+          title="Try this prompt with ChatGPT"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M16 12l-4 4-4-4"></path>
+            <path d="M12 8v7"></path>
+          </svg>
+          Try with ChatGPT
+        </button>
+        
+        <button
+          onClick={handleTryWithClaude}
+          className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded-full text-xs font-medium transition-colors"
+          title="Try this prompt with Claude"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M16 12l-4 4-4-4"></path>
+            <path d="M12 8v7"></path>
+          </svg>
+          Try with Claude
+        </button>
+        
+        <button
+          onClick={handleCopyPrompt}
+          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-xs font-medium transition-colors"
+          title="Copy prompt to clipboard"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+          </svg>
+          {isCopied ? "Copied!" : "Copy"}
+        </button>
+      </div>
       
       <div className="flex flex-wrap items-center justify-between mt-3">
         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">

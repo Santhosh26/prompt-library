@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 
@@ -31,13 +31,38 @@ export async function POST(
       );
     }
     
-    // Increment upvotes
-    const updatedPrompt = await prisma.prompt.update({
-      where: { id },
-      data: {
-        upvotes: { increment: 1 },
-      },
+    // Check if user already upvoted this prompt
+    const existingUpvote = await prisma.userPromptUpvote.findUnique({
+      where: {
+        userId_promptId: {
+          userId: session.user.id,
+          promptId: id
+        }
+      }
     });
+    
+    if (existingUpvote) {
+      return NextResponse.json(
+        { error: "You have already upvoted this prompt" },
+        { status: 400 }
+      );
+    }
+    
+    // Create upvote record and increment prompt upvote count in a transaction
+    const [upvote, updatedPrompt] = await prisma.$transaction([
+      prisma.userPromptUpvote.create({
+        data: {
+          userId: session.user.id,
+          promptId: id
+        }
+      }),
+      prisma.prompt.update({
+        where: { id },
+        data: {
+          upvotes: { increment: 1 }
+        }
+      })
+    ]);
     
     return NextResponse.json(updatedPrompt);
   } catch (error) {

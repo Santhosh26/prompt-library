@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { PROMPT_USE_CASES } from "@/lib/constants";
 
 export interface Prompt {
   id: string;
@@ -44,8 +45,13 @@ export default function PromptsPage() {
       });
   }, []);
 
-  // Get unique use case options from prompts
-  const uniqueUseCases = Array.from(new Set(prompts.map((p) => p.useCase)));
+  // Get unique use case options from prompts and predefined list
+  const uniqueUseCases = ["All", ...new Set([
+    ...PROMPT_USE_CASES,
+    ...prompts.map(p => p.useCase).filter(useCase => 
+      useCase && !PROMPT_USE_CASES.includes(useCase as any)
+    )
+  ])];
 
   // Filter prompts based on search text and selected use case
   const filteredPrompts = prompts.filter((prompt) => {

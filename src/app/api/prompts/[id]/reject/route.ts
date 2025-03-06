@@ -48,8 +48,7 @@ export async function POST(request: Request) {
   }
   
   try {
-    const reqData = await request.json();
-    const { title, content, source } = reqData;
+    const { title, content, useCase, source } = await request.json();
     
     if (!title || !content) {
       return NextResponse.json(
@@ -58,14 +57,11 @@ export async function POST(request: Request) {
       );
     }
     
-    // Validate the use case
-    const finalUseCase = reqData.useCase || "Other";
-    
     const prompt = await prisma.prompt.create({
       data: {
         title,
         content,
-        useCase: finalUseCase,
+        useCase: useCase || "General",
         source: source || "Anonymous",
         createdBy: session.user.id,
       },
