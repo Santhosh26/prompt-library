@@ -1,3 +1,6 @@
+// File: src/app/api/prompts/[id]/route.ts
+// This file handles the API routes for individual prompts
+
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
@@ -10,9 +13,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const { id } = params;
-  
   try {
+    const id = params.id; // Use this format instead of destructuring
+    
     const prompt = await prisma.prompt.findUnique({
       where: { id },
       include: {
@@ -48,7 +51,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
-  const { id } = params;
   
   if (!session) {
     return NextResponse.json(
@@ -58,6 +60,8 @@ export async function DELETE(
   }
   
   try {
+    const id = params.id; // Use this format instead of destructuring
+    
     const prompt = await prisma.prompt.findUnique({
       where: { id },
     });
@@ -77,6 +81,12 @@ export async function DELETE(
       );
     }
     
+    // Delete any associated upvotes first
+    await prisma.userPromptUpvote.deleteMany({
+      where: { promptId: id },
+    });
+    
+    // Then delete the prompt
     await prisma.prompt.delete({
       where: { id },
     });
@@ -86,6 +96,79 @@ export async function DELETE(
     console.error("Error deleting prompt:", error);
     return NextResponse.json(
       { error: "Failed to delete prompt" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH a prompt to edit it
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    return NextResponse.json(
+      { error: "You must be signed in to edit a prompt" },
+      { status: 401 }
+    );
+  }
+  
+  try {
+    const id = params.id; // Use this format instead of destructuring
+    
+    const prompt = await prisma.prompt.findUnique({
+      where: { id },
+    });
+    
+    if (!prompt) {
+      return NextResponse.json(
+        { error: "Prompt not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Check if user is the creator or an admin
+    if (prompt.createdBy !== session.user.id && session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Not authorized to edit this prompt" },
+        { status: 403 }
+      );
+    }
+    
+    const data = await request.json();
+    const { title, content, useCase, source } = data;
+    
+    // Validate required fields
+    if (!title || !content) {
+      return NextResponse.json(
+        { error: "Title and content are required" },
+        { status: 400 }
+      );
+    }
+    
+    // If user is not an admin, reset status to PENDING for moderation
+    const updatedData = session.user.role === "ADMIN"
+      ? { title, content, useCase, source }
+      : { 
+          title, 
+          content, 
+          useCase, 
+          source,
+          status: "PENDING" // Reset to pending when a regular user edits
+        };
+    
+    const updatedPrompt = await prisma.prompt.update({
+      where: { id },
+      data: updatedData,
+    });
+    
+    return NextResponse.json(updatedPrompt);
+  } catch (error) {
+    console.error("Error updating prompt:", error);
+    return NextResponse.json(
+      { error: "Failed to update prompt" },
       { status: 500 }
     );
   }

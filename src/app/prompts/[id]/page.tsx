@@ -1,6 +1,9 @@
+// File: src/app/prompts/[id]/page.tsx
+// This file provides the UI for viewing a prompt's details
+
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
@@ -26,9 +29,8 @@ export default function PromptDetailPage({
 }: {
   params: { id: string };
 }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = use(params);
-  const id = unwrappedParams.id;
+  // Access the ID directly from params
+  const id = params.id;
   
   const { data: session } = useSession();
   const [prompt, setPrompt] = useState<PromptDetail | null>(null);
