@@ -48,7 +48,7 @@ export async function GET(
 // DELETE a prompt
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   
