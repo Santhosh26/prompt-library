@@ -1,12 +1,15 @@
+// File: src/app/api/prompts/route.ts
+// Updated to include liked status in the response
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
-
 // GET all prompts or filtered by user
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
   const { searchParams } = new URL(request.url);
   const createdBy = searchParams.get("createdBy");
   
@@ -23,10 +26,37 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        // Include relationship with upvotes to check if current user has liked
+        upvotedBy: session ? {
+          where: {
+            userId: session.user.id
+          },
+          select: {
+            userId: true
+          }
+        } : undefined
       },
     });
     
-    return NextResponse.json(prompts);
+    // If user is admin, don't filter prompts by status
+    // Otherwise, filter approved prompts if not showing user's prompts
+    const filteredPrompts = session?.user?.role === "ADMIN"
+      ? prompts
+      : createdBy 
+        ? prompts 
+        : prompts.filter((p) => p.status === "APPROVED");
+      
+    // Add liked property to each prompt
+    const promptsWithLikedStatus = filteredPrompts.map(prompt => {
+      // Remove upvotedBy from response and add a liked flag based on it
+      const { upvotedBy, ...promptData } = prompt;
+      return {
+        ...promptData,
+        liked: session ? upvotedBy.length > 0 : false
+      };
+    });
+    
+    return NextResponse.json(promptsWithLikedStatus);
   } catch (error) {
     console.error("Error fetching prompts:", error);
     return NextResponse.json(
@@ -35,7 +65,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
 // POST a new prompt
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);

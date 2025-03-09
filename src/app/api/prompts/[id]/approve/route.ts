@@ -10,10 +10,10 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  const id = params.id; // Fixed: Use this format instead of destructuring
+  const { id } = await context.params; // Await params before accessing its properties
   
   // Check if user is an admin
   if (!session || session.user.role !== "ADMIN") {

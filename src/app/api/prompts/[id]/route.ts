@@ -1,5 +1,5 @@
 // File: src/app/api/prompts/[id]/route.ts
-// This file handles the API routes for individual prompts
+// Updated to include liked status in the response
 
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
@@ -11,13 +11,15 @@ const prisma = new PrismaClient();
 // GET a specific prompt by ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  try {
-    const id = params.id; // Use this format instead of destructuring
-    
+  const session = await getServerSession(authOptions);
+  const { id: promptId } = await context.params;
+
+  
+  try {    
     const prompt = await prisma.prompt.findUnique({
-      where: { id },
+      where: { id: promptId },
       include: {
         user: {
           select: {
@@ -25,6 +27,15 @@ export async function GET(
             email: true,
           },
         },
+        // Include relationship with upvotes to check if current user has liked
+        upvotedBy: session ? {
+          where: {
+            userId: session.user.id
+          },
+          select: {
+            userId: true
+          }
+        } : undefined
       },
     });
     
@@ -35,7 +46,14 @@ export async function GET(
       );
     }
     
-    return NextResponse.json(prompt);
+    // Remove upvotedBy from response and add a liked flag based on it
+    const { upvotedBy, ...promptData } = prompt;
+    const responseData = {
+      ...promptData,
+      liked: session ? upvotedBy.length > 0 : false
+    };
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Error fetching prompt:", error);
     return NextResponse.json(
@@ -48,7 +66,7 @@ export async function GET(
 // DELETE a prompt
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   
@@ -60,10 +78,11 @@ export async function DELETE(
   }
   
   try {
-    const id = params.id; // Use this format instead of destructuring
+    // Await the params before accessing its properties
+    const { id: promptId } = await context.params;
     
     const prompt = await prisma.prompt.findUnique({
-      where: { id },
+      where: { id: promptId },
     });
     
     if (!prompt) {
@@ -83,12 +102,12 @@ export async function DELETE(
     
     // Delete any associated upvotes first
     await prisma.userPromptUpvote.deleteMany({
-      where: { promptId: id },
+      where: { promptId },
     });
     
     // Then delete the prompt
     await prisma.prompt.delete({
-      where: { id },
+      where: { id: promptId },
     });
     
     return NextResponse.json({ message: "Prompt deleted successfully" });
@@ -104,7 +123,7 @@ export async function DELETE(
 // PATCH a prompt to edit it
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
   
@@ -116,10 +135,10 @@ export async function PATCH(
   }
   
   try {
-    const id = params.id; // Use this format instead of destructuring
+    const promptId = context.params.id;
     
     const prompt = await prisma.prompt.findUnique({
-      where: { id },
+      where: { id: promptId },
     });
     
     if (!prompt) {
@@ -160,7 +179,7 @@ export async function PATCH(
         };
     
     const updatedPrompt = await prisma.prompt.update({
-      where: { id },
+      where: { id: promptId },
       data: updatedData,
     });
     
