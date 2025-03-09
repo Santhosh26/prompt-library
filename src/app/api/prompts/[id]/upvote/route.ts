@@ -1,3 +1,6 @@
+// File: src/app/api/prompts/[id]/upvote/route.ts
+// This file handles the API route for toggling prompt upvotes (like/unlike)
+
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
@@ -7,21 +10,23 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
-  const { id } = params;
+  
+  // Await the params before accessing its properties
+  const { id: promptId } = await context.params;
   
   if (!session) {
     return NextResponse.json(
-      { error: "You must be signed in to upvote" },
+      { error: "You must be signed in to like/unlike" },
       { status: 401 }
     );
   }
   
   try {
     const prompt = await prisma.prompt.findUnique({
-      where: { id },
+      where: { id: promptId },
     });
     
     if (!prompt) {
@@ -36,39 +41,59 @@ export async function POST(
       where: {
         userId_promptId: {
           userId: session.user.id,
-          promptId: id
+          promptId: promptId
         }
       }
     });
     
+    let updatedPrompt;
+    
     if (existingUpvote) {
-      return NextResponse.json(
-        { error: "You have already upvoted this prompt" },
-        { status: 400 }
-      );
+      // User already upvoted - remove the upvote (unlike)
+      await prisma.userPromptUpvote.delete({
+        where: {
+          id: existingUpvote.id
+        }
+      });
+      
+      // Decrement the upvote count
+      updatedPrompt = await prisma.prompt.update({
+        where: { id: promptId },
+        data: {
+          upvotes: { decrement: 1 }
+        }
+      });
+      
+      return NextResponse.json({
+        ...updatedPrompt,
+        liked: false
+      });
+    } else {
+      // User hasn't upvoted - add the upvote (like)
+      const [, prompt] = await prisma.$transaction([
+        prisma.userPromptUpvote.create({
+          data: {
+            userId: session.user.id,
+            promptId: promptId
+          }
+        }),
+        prisma.prompt.update({
+          where: { id: promptId },
+          data: {
+            upvotes: { increment: 1 }
+          }
+        })
+      ]);
+      
+      return NextResponse.json({
+        ...prompt,
+        liked: true
+      });
     }
-    
-    // Create upvote record and increment prompt upvote count in a transaction
-    const [upvote, updatedPrompt] = await prisma.$transaction([
-      prisma.userPromptUpvote.create({
-        data: {
-          userId: session.user.id,
-          promptId: id
-        }
-      }),
-      prisma.prompt.update({
-        where: { id },
-        data: {
-          upvotes: { increment: 1 }
-        }
-      })
-    ]);
-    
-    return NextResponse.json(updatedPrompt);
   } catch (error) {
-    console.error("Error upvoting prompt:", error);
+    console.error("Error toggling upvote:", error);
     return NextResponse.json(
-      { error: "Failed to upvote prompt" },
+      { error: "Failed to process upvote" },
       { status: 500 }
     );
   }

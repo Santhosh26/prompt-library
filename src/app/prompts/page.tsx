@@ -1,5 +1,5 @@
 // File: src/app/prompts/page.tsx
-// This file provides the UI for browsing and managing prompts
+// Updated to use icon components
 
 "use client";
 
@@ -9,6 +9,12 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { PROMPT_USE_CASES } from "@/lib/constants";
 import { useRouter } from "next/navigation";
+import { 
+  HeartFilledIcon, 
+  HeartOutlineIcon, 
+  EditIcon, 
+  DeleteIcon 
+} from "@/components/icons/Icons";
 
 export interface Prompt {
   id: string;
@@ -24,6 +30,7 @@ export interface Prompt {
     name: string | null;
     email: string;
   };
+  liked?: boolean;
 }
 
 export default function PromptsPage() {
@@ -87,6 +94,7 @@ export default function PromptsPage() {
   const handleUpvote = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     if (!session) {
+      router.push("/auth/signin");
       return;
     }
 
@@ -95,17 +103,22 @@ export default function PromptsPage() {
         method: "POST",
       });
       
-      if (!res.ok) throw new Error("Failed to upvote");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to process upvote");
+      }
       
       const updatedPrompt = await res.json();
       
+      // Update the prompt in the state
       setPrompts(prevPrompts => 
         prevPrompts.map(p => 
-          p.id === id ? { ...p, upvotes: updatedPrompt.upvotes } : p
+          p.id === id ? { ...p, upvotes: updatedPrompt.upvotes, liked: updatedPrompt.liked } : p
         )
       );
     } catch (err) {
-      console.error("Error upvoting:", err);
+      console.error("Error handling upvote:", err);
+      // Show error only in console, not to the user for better UX
     }
   };
 
@@ -122,7 +135,6 @@ export default function PromptsPage() {
     if (!promptToDelete) return;
 
     try {
-      console.log("Deleting prompt:", promptToDelete);
       const res = await fetch(`/api/prompts/${promptToDelete}`, {
         method: "DELETE",
       });
@@ -256,46 +268,30 @@ export default function PromptsPage() {
                           className="p-1 text-gray-500 hover:text-blue-500 mr-1"
                           title="Edit prompt"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                          </svg>
+                          <EditIcon />
                         </button>
                         <button
                           onClick={() => handleDeleteConfirm(prompt.id)}
                           className="p-1 text-gray-500 hover:text-red-500"
                           title="Delete prompt"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
+                          <DeleteIcon />
                         </button>
                       </div>
                     )}
                     <button
                       onClick={(e) => handleUpvote(prompt.id, e)}
                       className={`flex items-center gap-1 px-2 py-1 rounded ${
-                        session 
-                          ? "bg-blue-100 hover:bg-blue-200 text-blue-800 cursor-pointer" 
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        !session 
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                          : prompt.liked
+                            ? "bg-red-100 text-red-600 hover:bg-red-50"
+                            : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                       }`}
                       disabled={!session}
-                      title={session ? "Upvote this prompt" : "Sign in to upvote"}
+                      title={session ? "Like this prompt" : "Sign in to like"}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m19 14-7-7-7 7"></path>
-                      </svg>
+                      {prompt.liked ? <HeartFilledIcon width={16} height={16} /> : <HeartOutlineIcon width={16} height={16} />}
                       <span>{prompt.upvotes}</span>
                     </button>
                   </div>
