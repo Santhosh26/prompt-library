@@ -45,17 +45,18 @@ export default function PromptsPage() {
 
   const fetchPrompts = async () => {
     try {
-      const url = showMyPrompts && session?.user?.id 
-        ? `/api/prompts?createdBy=${session.user.id}` 
-        : "/api/prompts";
-      
+      const url =
+        showMyPrompts && session?.user?.id
+          ? `/api/prompts?createdBy=${session.user.id}`
+          : "/api/prompts";
       const res = await fetch(url);
-      const data = await res.json();
+      // Explicitly type the response as an array of Prompt objects
+      const data: Prompt[] = await res.json();
       
-      // Filter approved prompts if not showing user's prompts
-      const filteredPrompts = showMyPrompts 
-        ? data 
-        : data.filter((p: Prompt) => p.status === "APPROVED");
+      // Remove any explicit casts to any
+      const filteredPrompts = showMyPrompts
+        ? data
+        : data.filter((p) => p.status === "APPROVED");
       
       setPrompts(filteredPrompts);
     } catch (err) {
@@ -64,14 +65,18 @@ export default function PromptsPage() {
       setLoading(false);
     }
   };
+  
 
   // Get unique use case options from prompts and predefined list
-  const uniqueUseCases = ["All", ...new Set([
-    ...PROMPT_USE_CASES,
-    ...prompts.map(p => p.useCase).filter(useCase => 
-      useCase && !PROMPT_USE_CASES.includes(useCase as any)
-    )
-  ])];
+  const uniqueUseCases = [
+    "All",
+    ...new Set([
+      ...PROMPT_USE_CASES,
+      ...prompts.map((p) => p.useCase).filter((useCase) =>
+        useCase && !PROMPT_USE_CASES.includes(useCase as typeof PROMPT_USE_CASES[number])
+      )
+    ])
+  ];
 
   // Filter prompts based on search text and selected use case
   const filteredPrompts = prompts.filter((prompt) => {
