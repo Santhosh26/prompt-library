@@ -49,7 +49,7 @@ export async function POST(
     }
     
     // Create upvote record and increment prompt upvote count in a transaction
-    const [upvote, updatedPrompt] = await prisma.$transaction([
+    const [, updatedPrompt] = await prisma.$transaction([
       prisma.userPromptUpvote.create({
         data: {
           userId: session.user.id,
