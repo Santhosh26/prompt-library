@@ -49,16 +49,15 @@ export async function POST(
     let updatedPrompt;
     
     if (existingUpvote) {
-      // User already upvoted - remove the upvote (unlike)
-      await prisma.userPromptUpvote.delete({
-        where: {
-          id: existingUpvote.id
-        }
-      });
-      
-      // Decrement the upvote count
-      updatedPrompt = await prisma.prompt.update({
-        where: { id: promptId },
+      return NextResponse.json(
+        { error: "You have already upvoted this prompt" },
+        { status: 400 }
+      );
+    }
+    
+    // Create upvote record and increment prompt upvote count in a transaction
+    const [upvote, updatedPrompt] = await prisma.$transaction([
+      prisma.userPromptUpvote.create({
         data: {
           upvotes: { decrement: 1 }
         }

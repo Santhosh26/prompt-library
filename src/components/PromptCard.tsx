@@ -23,7 +23,6 @@ export default function PromptCard({
   title,
   content,
   useCase,
-  source,
   upvotes,
   userName,
   onUpvote,

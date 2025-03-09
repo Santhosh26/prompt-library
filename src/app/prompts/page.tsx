@@ -71,14 +71,22 @@ export default function PromptsPage() {
       setLoading(false);
     }
   };
-
+  const isPredefinedUseCase = (
+    value: string
+  ): value is typeof PROMPT_USE_CASES[number] => {
+    // Cast PROMPT_USE_CASES as a readonly string[] to use includes without error
+    return (PROMPT_USE_CASES as readonly string[]).includes(value);
+  };
   // Get unique use case options from prompts and predefined list
-  const uniqueUseCases = ["All", ...new Set([
-    ...PROMPT_USE_CASES,
-    ...prompts.map(p => p.useCase).filter(useCase => 
-      useCase && !PROMPT_USE_CASES.includes(useCase as any)
-    )
-  ])];
+  const uniqueUseCases = [
+    "All",
+    ...new Set([
+      ...PROMPT_USE_CASES,
+      ...prompts
+        .map((p) => p.useCase)
+        .filter((useCase: string) => useCase && !isPredefinedUseCase(useCase)),
+    ]),
+  ];
 
   // Filter prompts based on search text and selected use case
   const filteredPrompts = prompts.filter((prompt) => {
